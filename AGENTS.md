@@ -11,13 +11,15 @@ those rules differ, the rules win.
 Each is declared once, and everything else derives from it:
 
 - `src/paths.ts`: every URL. Build links with `href(paths.x, params)`.
-- `src/schema.ts`: the D1 tables (`src/auth-schema.ts` holds Better Auth's).
+- `src/schema.ts`: the D1 table, `leads`. This app has no accounts.
 - `src/forms.ts`: the schemas forms are validated with, which type the forms
-  in React too (`FormInput<typeof ProjectForm>`).
+  in React too (`FormInput<typeof LeadForm>`).
 - `src/pages.ts`: each page's props, taken from the tables' columns.
 - `src/env.ts`: the Worker's vars and secrets, each with its schema; the
   bindings type derives from it.
-- `src/app.ts`: `setupWeb`, which owns rendering, D1, auth and route binding.
+- `src/app.ts`: `setupWeb`, which owns rendering and D1, and each request's
+  services (`src/leads.ts`: Turnstile, the rate limiter, the queue and the
+  owner's inbox), built from its bindings.
 - `src/routes.ts`: every route, with the action that answers it.
 - `src/actions/`: the actions. `src/pages/`: the React pages, each listed in
   `src/main.tsx`.
@@ -27,30 +29,19 @@ Each is declared once, and everything else derives from it:
 1. Declare its path in `src/paths.ts`.
 2. Declare its props in `src/pages.ts`.
 3. Declare its form's fields, if it has a form, in `src/forms.ts`.
-4. Write its action in `src/actions/`, and register it in `src/routes.ts`
-   (behind `RequireAuthLayer` when it needs a signed-in member).
+4. Write its action in `src/actions/`, and register it in `src/routes.ts`.
 5. Write the component in `src/pages/`, typed `WebPage<'Name'>`, and add it
    to `components` in `src/main.tsx`; a page without one is a type error.
 6. Test it in `test/` through the app, as the tests there do.
 
-The projects pages are an example to copy and learn from: a list, a form
-that creates, a page that shows, edits and deletes one, and a public page.
-Build what the user asks for beside them the same way, and remove them when
-the user no longer wants them.
-
-A route that reads a record names it in its path (`/projects/{project}`)
-and reads it with `bound('project')`. Add its table to `bindings` in
-`src/app.ts` with who may load it, and never check that in the action:
-`routeBinding(schema.projects, { ownedBy: 'userId' })` for the signed-in
-member's own records, whose others are the 404 a missing record is;
-`{ publicWhen: { visibility: 'public' } }` for a page anyone may see, under
-a binding of its own (`publicProject` shows the table bound twice);
-`{ public: true }` for any record, to anyone. A record that lives inside
-another, such as a task in a project, goes under it in the path
-(`/projects/{project}/tasks/{task}`) and says
-`{ scope: { project: { foreignKey: 'projectId' } } }`, so it loads only under
-its project and the project's binding decides. The lint rule
-`require-binding-access` reports a binding that doesn't say.
+The landing page and its form are the example to copy: `sendLead` in
+`src/actions/leads.ts` validates the form, asks the rate limiter and
+Turnstile, writes the lead to D1, then queues it; `emailOwner` in
+`src/leads.ts` is the queue consumer that emails the owner. A service that
+reaches another system lives in `src/leads.ts`, built from the request's
+bindings in `src/app.ts`, and the tests in `test/app.ts` replace it or its
+binding with a fake. The landing page reads nothing per visitor, so the edge
+caches it: keep it that way, and put anything per visitor on `/thanks`.
 
 ## Changing the database
 
@@ -62,8 +53,7 @@ a migration that has been applied. Tests migrate each test's own D1 database
 from `migrations/`.
 
 `bun run db:seed` deletes the local database's data, migrates a new one and
-runs `src/seed.ts`, whose member signs in as `ada@example.com` with the
-password `at least twelve characters`; keep the seed working when the schema
+runs `src/seed.ts`, which adds two leads; keep the seed working when the schema
 changes, as `bun run check` type-checks it. `bun run db:reset` empties the
 local database. Both delete data, so without a terminal they stop and ask
 for `--yes`: pass it only when the user asked for the reset, and run
@@ -106,7 +96,7 @@ with no migration (run `bun run db:generate`), when Wrangler isn't signed in
 to Cloudflare (`bun run cloudflare:login` opens the user's browser to allow
 it), or when the Worker lacks a secret `src/env.ts` needs that nothing
 generates (`bun run secret NAME`, with the user's value). It uploads the new
-version beside the live one, and makes it live only once its `/login`
+version beside the live one, and makes it live only once its `/`
 answers 200 at the version's own address; it ends by printing the app's
 address. When the check fails, the live version is unchanged and the output
 names the address and what it answered: fetch that address to see the

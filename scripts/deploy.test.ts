@@ -6,7 +6,6 @@ import { Schema as S } from 'effect'
 import { defineEnv, randomSecret, secret, variable, type EnvDeclaration } from '@popcomputer/web/env'
 
 import drizzleConfig from '../drizzle.config'
-import { env } from '../src/env'
 import { findDatabaseId, PLACEHOLDER_DATABASE_ID, readDatabaseId, writeDatabaseId } from './cloudflare-database'
 import { readEvents } from './command'
 import {
@@ -152,7 +151,8 @@ describe("the Worker's vars and secrets", () => {
 
   test("hears there's no Worker before the first deploy, so the build goes live directly", () => {
     const notFound = { status: 1, stderr: '✘ [ERROR] Worker "book-club" not found.' }
-    const { problem, newWorker, calls } = withWrangler({ 'secret list': notFound }, env)
+    const template = defineEnv({ BETTER_AUTH_SECRET: mailing.entries.BETTER_AUTH_SECRET, ENVIRONMENT: mailing.entries.ENVIRONMENT })
+    const { problem, newWorker, calls } = withWrangler({ 'secret list': notFound }, template)
 
     expect(problem).toBeUndefined()
     expect(newWorker).toBe(true)
@@ -286,7 +286,7 @@ describe('staged deploy', () => {
         return wrangler.calls()
       })
 
-      expect(version.requests).toEqual(['/login'])
+      expect(version.requests).toEqual(['/'])
       expect(calls).toEqual([
         ['versions', 'upload', '--message', 'bun run deploy'],
         ['versions', 'deploy', `${versionId}@100%`, '--yes', '--message', 'bun run deploy'],
@@ -305,7 +305,7 @@ describe('staged deploy', () => {
         calls: wrangler.calls(),
       }))
 
-      expect(problem).toContain(`didn't answer at ${version.url}/login: it answered with status 500`)
+      expect(problem).toContain(`didn't answer at ${version.url}/: it answered with status 500`)
       expect(problem).toContain("It isn't live: the live version is unchanged.")
       expect(problem).toContain('then run bun run deploy again')
       expect(calls).toEqual([['versions', 'upload', '--message', 'bun run deploy']])
@@ -340,8 +340,8 @@ describe('staged deploy', () => {
       deployStaged(check)
     )
 
-    expect(asked).toEqual(['https://book-club.ada.workers.dev/login'])
-    expect(problem).toContain("It's live, but https://book-club.ada.workers.dev/login didn't answer: it answered with status 503.")
+    expect(asked).toEqual(['https://book-club.ada.workers.dev/'])
+    expect(problem).toContain("It's live, but https://book-club.ada.workers.dev/ didn't answer: it answered with status 503.")
     expect(problem).toContain('bun run rollback')
   })
 

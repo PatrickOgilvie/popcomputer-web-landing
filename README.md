@@ -1,104 +1,150 @@
 <img src="src/assets/popcomputer.png" alt="Popcomputer" width="374" height="69">
 
-# @popcomputer/web demo
+# A landing page on @popcomputer/web
 
-A complete application on @popcomputer/web, to start yours from.
+An example application made from the
+[template](https://github.com/PatrickOgilvie/popcomputer-web-demo): a
+one-page site for Shipnote, a made-up product, whose form books a demo. The
+form is guarded by Cloudflare Turnstile, each message is kept in D1, and a
+Cloudflare Queue hands it to Cloudflare Email Service, which emails the
+site's owner.
 
-React pages served by Inertia from a Cloudflare Worker, with Effect actions,
-D1 and Better Auth, built on
+**Live at [landing.web.popcomputer.com](https://landing.web.popcomputer.com).** Send the form: the next page shows the message being saved, queued and emailed, and the email the owner gets.
+
+React pages served by Inertia from a Cloudflare Worker, with Effect actions
+and D1, built on
 [@popcomputer/web](https://github.com/PatrickOgilvie/popcomputer-web). Its
 [README](https://github.com/PatrickOgilvie/popcomputer-web#readme) explains
-each part; this repository shows them working together. Use it as a
-template, or deploy it as it is.
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/PatrickOgilvie/popcomputer-web-demo)
+each part; this repository shows them taking a form from a stranger safely.
 
 ```ts
-// src/actions/projects.ts
-export const updateProject = action(
+// src/actions/leads.ts: the form's post
+export const sendLead = action(
   Effect.gen(function* () {
-    // Only its owner's: the binding is ownedBy 'userId', so another member's is a 404.
-    const project = yield* bound('project')
-    const input = yield* validateRequest(ProjectForm)
-    const updatedAt = DateTime.toDateUtc(yield* DateTime.now)
+    const input = yield* validateRequest(LeadForm)
+    // ...five messages a minute from one address, at most...
 
-    yield* dbMutation((db) =>
-      db.update(projects)
-        .set({ ...input, updatedAt })
-        .where(and(eq(projects.id, project.id), eq(projects.userId, project.userId)))
-    )
-    yield* flash('success', 'Project saved.')
+    const turnstile = yield* Turnstile
+    const person = yield* turnstile.verify({ token: input.turnstile, ip, hostname: new URL(request.url).hostname })
+    if (!person) return yield* invalid({ turnstile: 'We couldn’t confirm you’re a person. Try the check again.' })
 
-    return yield* redirect(paths.project, { project: project.id })
+    // Kept first, then queued: a slow or failing email never loses a lead.
+    yield* dbMutation((db) => db.insert(leads).values({ id, ...lead, createdAt }))
+    yield* queue.enqueue(id)
+
+    return yield* redirect(paths.thanks)
   })
 )
 ```
 
 ## Contents
 
-- [What it does](#what-it-does) · [How it's built](#how-its-built) · [Running it locally](#running-it-locally) · [Checks](#checks)
+- [What it does](#what-it-does) · [How it's built](#how-its-built) · [Setting up Turnstile and email](#setting-up-turnstile-and-email) · [Running it locally](#running-it-locally) · [Checks](#checks)
 - [Changing the database](#changing-the-database) · [The local database's data](#the-local-databases-data) · [Vars and secrets](#vars-and-secrets) · [Deploying](#deploying) · [Deploying from GitHub](#deploying-from-github)
 - [Upgrading](#upgrading) · [Working with coding agents](#working-with-coding-agents)
 
 ## What it does
 
-- **Accounts.** Register, sign in and sign out through Better Auth. Attempts
-  are limited per address by Cloudflare's Rate Limiting binding and per
-  account in D1, and a daily cron clears the counts.
-- **Projects.** Create, edit and delete projects only their owner can see.
-  Another member's project is the same 404 as a missing one.
-- **A public page.** Anyone can read a project its owner made public, at
-  `/showcase/projects/{id}`, until the next request after it is made private.
-- **Signed-in devices.** List the devices signed in to the account, and sign
-  any other one, or all of them, out.
+- **A landing page.** Shipnote's hero, features, steps, pricing and
+  questions, on one page, in light and dark. It reads nothing per visitor, so
+  Cloudflare's edge serves it from its page cache.
+- **A form that books a demo.** Name, work email, company, team size and a
+  message, checked on the server, and in the database by `CHECK`
+  constraints. A failed form goes back with its errors beside the fields.
+- **Turnstile in front of it.** The widget proves a visitor is a person,
+  usually without a puzzle; the server checks its token with Turnstile's
+  `siteverify`, for this form's action and this site's host, once.
+- **A limit per address.** A Rate Limiting binding lets one address send
+  five messages a minute.
+- **Kept, then emailed.** Each message is written to D1 first, then queued.
+  The Worker's queue consumer emails the owner through Email Service, with a
+  reply-to that reaches the sender, and marks the lead sent. A send that
+  fails goes back to the queue to try again; a repeat delivery sends nothing.
+- **One address only.** The `send_email` binding has one
+  `destination_address`, so the Worker can't email anyone but the owner, and
+  it sends 50 a day at most: the rest wait in the database.
+- **A thank-you page that watches.** It shows the message this browser sent,
+  through a cookie scoped to `/thanks`, and the email the owner gets, and asks
+  for the lead alone every two seconds until the email has gone.
+- **Thirty days, then gone.** The daily Cron Trigger deletes older leads.
 
-Each page past sign-in, and the public project page, ends with an "Under the
-hood" panel naming the action that answers it and what the framework
-guarantees there.
+Each page ends with an "Under the hood" panel naming the action that answers
+it and what the framework guarantees there.
 
 ## How it's built
 
-- **Every name is declared once, and the rest derives from it.** A renamed
-  column, prop or path placeholder is a type error wherever it is used:
+- **Every name is declared once, and the rest derives from it.**
 
   | File | Declares |
   | --- | --- |
-  | `src/paths.ts` | Every URL. Actions redirect to them and React links to them with `href`. |
-  | `src/schema.ts` | The D1 tables, with their limits as `CHECK` constraints. |
-  | `src/forms.ts` | The schemas forms are validated with, which type the forms in React too. |
-  | `src/pages.ts` | Each page's props, taken from the tables' columns. A column a page doesn't name never reaches the browser. |
-  | `src/env.ts` | The Worker's vars and secrets, with their schemas. The Worker, `bun run dev`, `bun run env:check` and `bun run deploy` check them. |
-  | `src/app.ts` | `setupWeb`: rendering, D1, Better Auth, route model binding, flash messages and the error page. |
+  | `src/paths.ts` | Every URL: `/`, `/leads` and `/thanks`. |
+  | `src/schema.ts` | The `leads` table, with its limits as `CHECK` constraints. |
+  | `src/forms.ts` | The form's schema, which types the form in React too. |
+  | `src/pages.ts` | Each page's props. A column a page doesn't name never reaches the browser. |
+  | `src/env.ts` | The Worker's vars, its Turnstile secret and its bindings. |
+  | `src/app.ts` | `setupWeb`, and each request's services from its bindings. |
   | `src/routes.ts` | Every route and the action that answers it. |
+  | `src/worker.ts` | The Worker: its fetch, queue and scheduled handlers. |
 
-- **An action reads its record from the URL** rather than querying for it,
-  and its binding says who may load it, so no action checks: another
-  member's project is the 404 a missing one is, from the lookup's own query.
+- **Each other system is a service** in `src/leads.ts`: `Turnstile`,
+  `LeadLimiter`, `LeadQueue` and `OwnerInbox`, built from each request's
+  bindings with `web.services({ request })`. The tests swap Turnstile for a
+  fake, and hand the app a queue and an inbox that keep what they're sent.
+
+- **The queue carries only the lead's id.** Its consumer reads the lead from
+  D1, so the message holds nothing personal, and a lead deleted meanwhile is
+  simply skipped:
 
   ```ts
-  // src/app.ts
-  bindings: {
-    project: routeBinding(schema.projects, { ownedBy: 'userId' }),
-    publicProject: routeBinding(schema.projects, { publicWhen: { visibility: 'public' } }),
-    session: routeBinding(schema.session, { ownedBy: 'userId' }),
-  },
+  // src/worker.ts
+  export default {
+    fetch: app.fetch,
+    queue: routes.queue(LeadEmail, (message) => emailOwner(message.leadId)),
+    scheduled: routes.scheduled(() => sweepLeads),
+  }
   ```
 
-- **A failed form goes back to its page** with its errors beside the fields,
-  and the page keeps everything it showed.
+- **What the lead wrote is escaped** in the email's HTML, and the subject
+  is kept to one line.
 
 The rest of the tree:
 
 ```text
 src/
-  actions/      the actions, one module per feature
+  actions/      the actions
   pages/        the React pages, each listed in src/main.tsx
-  components/   shared React components
-  auth.ts       Better Auth's options
-  worker.ts     the Worker: its fetch and scheduled handlers
+  components/   shared React components, Turnstile's widget among them
+  leads.ts      the services, the owner's email, the queue consumer and the sweep
 migrations/     D1 migrations, generated by drizzle-kit
 test/           tests through the app, each on a D1 database of its own
 ```
+
+## Setting up Turnstile and email
+
+Locally, nothing: `.env.development` and `.dev.vars.example` hold
+Cloudflare's Turnstile test keys, whose widget always passes, and `bun run
+dev` keeps each email in a file under `.wrangler/tmp/email/` and prints
+where. Copy `.dev.vars.example` to `.dev.vars` before the first
+`bun run dev`.
+
+On Cloudflare, once:
+
+1. **Turnstile.** Create a widget for your domain, in the dashboard's
+   Turnstile page or with
+   `bunx wrangler turnstile widget create my-landing --domain example.com --mode managed`.
+   Put its site key in `.env.production` (`VITE_TURNSTILE_SITE_KEY`), which is
+   built into the page, and its secret on the Worker with
+   `bun run secret TURNSTILE_SECRET`. The app refuses the test secret's
+   answers in production.
+2. **Email.** Onboard the domain you send from in the dashboard's
+   Email Service, under Email Sending. It adds the SPF, DKIM and DMARC
+   records. Set `LEADS_FROM` in `wrangler.jsonc` to an address on it, and
+   `LEADS_TO` and the `send_email` binding's `destination_address` to the
+   address that gets the emails; a test checks those two match.
+3. **The queue.** Create it once: `bunx wrangler queues create popcomputer-web-landing-emails`,
+   or the name you give it in `wrangler.jsonc`.
+4. **The address.** `routes` in `wrangler.jsonc` names this example's own
+   domain; remove it, or name one of yours.
 
 ## Running it locally
 
@@ -175,37 +221,17 @@ the id.
 If the address shows portless's "404 - Not Found" page, the app isn't running:
 start it with `bun run dev`, whatever command that page suggests.
 
-To try a form from a terminal, post its fields with curl, which the app
+To try the form from a terminal, post its fields with curl, which the app
 answers as a command-line client: a form that fails validation gets a 422
-with the errors as JSON, and a sign-up or sign-in a 303 to `/` with its
-session cookie, which curl keeps in `cookies.txt` (git ignores it). Send the
-`Origin` a browser would: Better Auth refuses a sign-up or sign-in without
-one, here as in production. Put your app's name in place of `my-app`. The
-example signs up `sam@example.com`, since `bun run db:seed` creates
-`ada@example.com`.
+with the errors as JSON, and one that passes a 303 to `/thanks`. Locally the
+test secret accepts any token, so any `turnstile` value passes. Send the
+`Origin` a browser would. Put your app's name in place of `my-app`:
 
 ```bash
-curl -isS https://my-app.localhost/register -c cookies.txt \
+curl -isS https://my-app.localhost/leads \
   -H 'Origin: https://my-app.localhost' \
   --data-urlencode 'name=Sam' --data-urlencode 'email=sam@example.com' \
-  --data-urlencode 'password=at least twelve characters'
-curl -sS -b cookies.txt https://my-app.localhost/
-```
-
-Signed in, the second command prints the dashboard's HTML page, with your name
-in the page data it carries; signed out, it prints the JSON 401. A browser that
-isn't signed in is sent from `/` to the sign-in page, which a browser's headers
-show: `curl -isS -A Mozilla/5.0 -H 'Accept: text/html' https://my-app.localhost/`
-answers 302 with `location: /login?redirect=%2F`.
-
-Signing in posts the email and password to `/login` the same way; a wrong
-password gets a 422.
-
-```bash
-curl -isS https://my-app.localhost/login -c cookies.txt \
-  -H 'Origin: https://my-app.localhost' \
-  --data-urlencode 'email=sam@example.com' \
-  --data-urlencode 'password=at least twelve characters'
+  --data-urlencode 'teamSize=1-10' --data-urlencode 'turnstile=any'
 ```
 
 Without the portless service, `bun run dev` asks for your password the first
@@ -229,9 +255,9 @@ bun run check
 ```
 
 `check` runs the type check, the framework's lint rules (`oxlint`) and the
-tests. The tests send requests through the app, signing in through the real
-registration form, each against a D1 database of its own in Miniflare, in
-process. On GitHub, `.github/workflows/check.yml` runs it for each push to
+tests. The tests send requests through the app, as a browser would, each
+against a D1 database of its own in Miniflare, in process, and run the queue
+consumer and the daily sweep as Cloudflare would. On GitHub, `.github/workflows/check.yml` runs it for each push to
 `main` and each pull request.
 
 ## Changing the database
@@ -261,22 +287,10 @@ bun run db:seed
 ```
 
 It deletes everything in the local database, applies the migrations to a
-new one, then runs `src/seed.ts`. The template's seed creates a member to
-sign in as, `ada@example.com` with the password `at least twelve characters`,
-with a private project and a public one. A seed exports a function that
-takes the database and the Worker's bindings, and inserts with Drizzle, so
-`bun run check` reports a seed a schema change has broken:
-
-```ts
-// src/seed.ts
-export async function seed(db: Database, env: Bindings): Promise<void> {
-  // Through Better Auth, as the sign-up form does, so the password signs in.
-  const auth = createAuth({ db, secret: env.BETTER_AUTH_SECRET, baseURL: 'http://localhost' })
-  const { user } = await auth.api.signUpEmail({ body: { ...seedMember } })
-
-  await db.insert(projects).values([{ userId: user.id, name: 'Apollo' }])
-}
-```
+new one, then runs `src/seed.ts`, which adds two leads, one emailed and one
+still queued. A seed exports a function that takes the database and the
+Worker's bindings, and inserts with Drizzle, so `bun run check` reports a
+seed a schema change has broken.
 
 `bun run db:seed --file seeds/demo.sql` runs a SQL file instead, or another
 module that exports a seed. To empty the local database without seeding it:
@@ -293,7 +307,7 @@ the local database is ever reset; the one on Cloudflare keeps its data.
 To run one SQL statement on the local database, and see what it returns:
 
 ```bash
-bun run db:execute "SELECT email, created_at FROM user"
+bun run db:execute "SELECT name, email, email_status FROM leads"
 ```
 
 With `--remote`, it runs on the database on Cloudflare, the live app's.
@@ -310,13 +324,13 @@ with the id in brackets.
 `src/env.ts` declares each var and secret the Worker reads, once, with an
 Effect schema for its value. The Worker checks its own against it before it
 serves: a missing or invalid one fails every request, and its log names which.
-The commands below check them before that can happen. The template has two:
-`BETTER_AUTH_SECRET`, which signs sessions, and `ENVIRONMENT`.
+The commands below check them before that can happen. This app has one
+secret, `TURNSTILE_SECRET`, and three vars: `ENVIRONMENT`, `LEADS_FROM` and
+`LEADS_TO`.
 
 A secret, such as another service's API key, is declared with `secret(...)`.
-A secret nobody has to choose, such as `BETTER_AUTH_SECRET`, has a
-`generate`, and `bun run dev` and `bun run deploy` each make one where it's
-missing:
+A secret nobody has to choose, such as a signing key, has a `generate`,
+and `bun run dev` and `bun run deploy` each make one where it's missing:
 
 ```ts
 export const env = defineEnv({
@@ -360,11 +374,8 @@ each one is set, not what it holds. Neither shows a value.
 
 ## Deploying
 
-**With the button** above, Cloudflare copies the repository to your account,
-creates the D1 database and asks for `BETTER_AUTH_SECRET`, and any other
-secret in `.dev.vars.example`: give it a new value from
-`openssl rand -base64 32`, not the placeholder. Its deploy applies the
-migrations, then deploys the Worker.
+First set up Turnstile, email and the queue, as
+[Setting up Turnstile and email](#setting-up-turnstile-and-email) says.
 
 **From your computer**, the first time, sign in to Cloudflare. This opens your
 browser to allow Wrangler into your account; a free account is enough:
@@ -389,16 +400,15 @@ It's safe to run again at any time. Each run:
 4. Stops, before changing anything on Cloudflare, if the Worker lacks a
    secret `src/env.ts` says it needs and nothing can make, naming the
    `bun run secret NAME` that sets it, or if `wrangler.jsonc` lacks a var.
-   Then uploads a new value for each secret `src/env.ts` can make, such as
-   `BETTER_AUTH_SECRET`, the first time. It never replaces one, so a redeploy
-   keeps everyone signed in.
+   Then uploads a new value for each secret `src/env.ts` can make, the first
+   time; this app has none. It never replaces one.
 5. Creates the app's D1 database the first time, and writes its id into
    `wrangler.jsonc`; commit that change. If the id is lost, the next run finds
    the database by its name instead of making another.
 6. Builds the app and applies new migrations to the D1 database.
 7. Uploads the build as a new version of the Worker, beside the live one,
-   and checks it answers at its own address, its Version URL: `/login`,
-   a page that needs no sign-in, has 30 seconds to answer. Only then does the
+   and checks it answers at its own address, its Version URL: the landing
+   page has 30 seconds to answer. Only then does the
    new version go live, with the cron schedule and `workers.dev` settings in
    `wrangler.jsonc`, and the deploy prints the app's address.
 
@@ -427,8 +437,7 @@ It builds the app, uploads it as a version that takes none of the live
 app's requests, checks it answers, and prints its address, such as
 `https://1a2b3c4d-my-app.my-subdomain.workers.dev`. `bun run deploy` makes
 the same code live. A preview runs on the live app's database and secrets:
-what someone does there, signing up or editing a project, they do to the
-live app's data. It never applies migrations, so it says when the database
+what someone does there they do to the live app's data, and its form emails the owner. It never applies migrations, so it says when the database
 on Cloudflare hasn't had one yet: pages that need it fail on the preview
 until a deploy applies it. The app has to be deployed once first, and it
 stops, as a deploy does, while the Worker lacks a secret `src/env.ts` says it
@@ -463,9 +472,9 @@ code, not the database: migrations stay applied, so the older code has to work
 with the newer tables. Requests to a Version URL, from `bun run preview` or a
 deploy's check, don't show in `bun run logs`.
 
-Better Auth takes its origin from each request, so the Worker works on
-`workers.dev`, at its Version URLs and on any custom domain routed to it,
-with nothing more to configure.
+Turnstile checks each token against the host the form was posted to, so
+add each address the form is used at, a Version URL's among them, to the
+widget's domains.
 
 ## Deploying from GitHub
 

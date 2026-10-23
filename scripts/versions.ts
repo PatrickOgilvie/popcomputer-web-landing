@@ -7,7 +7,7 @@ import { parseJson, readFailure, runWrangler, type CommandResult } from './comma
  * The page a readiness check asks for: it needs no sign-in, and answering it
  * takes the whole Worker, its routes and Inertia's page.
  */
-export const READINESS_PATH = paths.login
+export const READINESS_PATH = paths.home
 
 /** A version's id as Cloudflare shortens it, in its Version URL and dashboard. */
 export function shortVersion(versionId: string): string {

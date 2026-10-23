@@ -23,14 +23,14 @@ export default function UnderTheHood({
   return (
     <aside
       aria-label="Under the hood"
-      className="rounded-lg border border-zinc-200 bg-zinc-100/70 p-4 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900/60"
+      className="rounded-lg border border-stone-200 bg-stone-100/70 p-4 sm:p-5 dark:border-stone-800 dark:bg-stone-900/60"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-medium">
-          <Code className="size-4 text-zinc-500" aria-hidden="true" />
+          <Code className="size-4 text-stone-500" aria-hidden="true" />
           Under the hood
         </p>
-        <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">
+        <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-stone-600 dark:text-stone-400">
           <span>{route}</span>
           <span aria-hidden="true">·</span>
           <span>{action}</span>
@@ -38,7 +38,7 @@ export default function UnderTheHood({
       </div>
       <ul
         className={cn(
-          'mt-3 grid gap-2 text-sm text-pretty text-zinc-600 dark:text-zinc-400',
+          'mt-3 grid gap-2 text-sm text-pretty text-stone-600 dark:text-stone-400',
           !compact && 'sm:grid-cols-2 lg:grid-cols-3'
         )}
       >
@@ -53,7 +53,7 @@ export function Guarantee({ children }: { readonly children: ReactNode }) {
   return (
     <li className="flex gap-2">
       <span
-        className="mt-2 size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-600"
+        className="mt-2 size-1.5 shrink-0 rounded-full bg-stone-400 dark:bg-stone-600"
         aria-hidden="true"
       />
       <span>{children}</span>

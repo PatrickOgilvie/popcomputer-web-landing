@@ -58,13 +58,20 @@ describe('development session', () => {
   })
 })
 
+// The template's declaration, whose secret bun run dev generates: this app's
+// own needs Turnstile's, which nobody generates.
+const template = defineEnv({
+  BETTER_AUTH_SECRET: secret(S.String.check(S.isMinLength(32)), { generate: randomSecret }),
+  ENVIRONMENT: variable(S.Literals(['development', 'production', 'test'])),
+})
+
 describe('first run', () => {
   const devVarsPath = () => join(mkdtempSync(join(tmpdir(), 'dev-vars-')), '.dev.vars')
 
   test('writes .dev.vars with each secret src/env.ts generates, readable only by its owner', () => {
     const path = devVarsPath()
 
-    expect(ensureDevVars(undefined, path)).toEqual({ file: 'written', names: ['BETTER_AUTH_SECRET'] })
+    expect(ensureDevVars(template, path)).toEqual({ file: 'written', names: ['BETTER_AUTH_SECRET'] })
     const secret = /^BETTER_AUTH_SECRET=(.+)$/m.exec(readFileSync(path, 'utf8'))?.[1]
     expect(Buffer.from(secret ?? '', 'base64')).toHaveLength(32)
     expect(statSync(path).mode & 0o777).toBe(0o600)
@@ -74,7 +81,7 @@ describe('first run', () => {
     const path = devVarsPath()
     writeFileSync(path, 'BETTER_AUTH_SECRET=mine\n')
 
-    expect(ensureDevVars(undefined, path)).toEqual({ file: 'kept', names: [] })
+    expect(ensureDevVars(template, path)).toEqual({ file: 'kept', names: [] })
     expect(readFileSync(path, 'utf8')).toBe('BETTER_AUTH_SECRET=mine\n')
   })
 
@@ -96,15 +103,15 @@ describe('first run', () => {
 describe("the Worker's vars and secrets", () => {
   test("starts with the template's .dev.vars", () => {
     const path = join(mkdtempSync(join(tmpdir(), 'dev-vars-')), '.dev.vars')
-    ensureDevVars(undefined, path)
+    ensureDevVars(template, path)
 
-    expect(devVarsProblem(undefined, path)).toBeUndefined()
+    expect(devVarsProblem(template, path)).toBeUndefined()
   })
 
   test('stops, naming what to add, when a secret nobody generates is missing', () => {
     const path = join(mkdtempSync(join(tmpdir(), 'dev-vars-')), '.dev.vars')
     writeFileSync(path, 'BETTER_AUTH_SECRET=a-secret-of-thirty-two-characters-or-more\n')
-    const declaration = defineEnv({ ...env.entries, RESEND_API_KEY: secret(S.String) })
+    const declaration = defineEnv({ ...template.entries, RESEND_API_KEY: secret(S.String) })
 
     expect(devVarsProblem(declaration, path)).toBe(
       [
@@ -135,14 +142,12 @@ describe('Node.js for wrangler', () => {
 })
 
 describe('first run, copied example', () => {
-  test("replaces the example's placeholder secret", () => {
+  test("starts the app with Turnstile's test secret, kept as it is", () => {
     const path = join(mkdtempSync(join(tmpdir(), 'dev-vars-')), '.dev.vars')
     writeFileSync(path, `# copied\n${readFileSync('.dev.vars.example', 'utf8')}`)
 
-    expect(ensureDevVars(undefined, path)).toEqual({ file: 'updated', names: ['BETTER_AUTH_SECRET'] })
-    const vars = readFileSync(path, 'utf8')
-    expect(vars).toStartWith('# copied\n')
-    expect(vars).not.toContain('replace-me')
+    expect(ensureDevVars(env, path)).toEqual({ file: 'kept', names: [] })
+    expect(devVarsProblem(env, path)).toBeUndefined()
   })
 })
 

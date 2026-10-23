@@ -9,6 +9,9 @@
   // Each uploaded version answers at an address of its own: bun run deploy
   // checks a new one there before it goes live, and bun run preview shares it.
   "preview_urls": true,
+  // The example's own address on popcomputer.com's zone. To deploy a copy of
+  // your own, remove this, or name a domain of yours.
+  "routes": [{ "pattern": "landing.web.popcomputer.com", "custom_domain": true }],
   "d1_databases": [
     {
       "binding": "DB",
@@ -23,14 +26,29 @@
       "migrations_dir": "migrations"
     }
   ],
-  // Counts each client address's sign-in, sign-up and password calls, and
-  // each account's sign-ins, at Cloudflare's edge (auth.signInLimits).
+  // Counts each client address's messages from the form, at Cloudflare's edge.
   "ratelimits": [
-    { "name": "SIGN_IN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+    { "name": "LEAD_LIMITER", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } }
   ],
+  // Each new lead goes on the queue, and this Worker's queue handler emails
+  // the owner; a send that fails is tried again, five times at most.
+  "queues": {
+    "producers": [{ "binding": "LEAD_EMAILS", "queue": "popcomputer-web-landing-emails" }],
+    "consumers": [{ "queue": "popcomputer-web-landing-emails", "max_batch_size": 10, "max_retries": 5 }]
+  },
+  // Email Service sends the owner's emails. The binding may send to its one
+  // destination_address, LEADS_TO below, and nowhere else, from an address on
+  // a domain onboarded to Email Sending (LEADS_FROM). Locally, bun run dev
+  // keeps each email in a file instead of sending it.
+  "send_email": [{ "name": "OWNER_EMAIL", "destination_address": "owner@example.com" }],
   // Identifies the deploy, so the page cache starts each deploy empty.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // Clears the counts of failed sign-ins whose window has passed.
+  // Deletes the leads older than 30 days.
   "triggers": { "crons": ["0 3 * * *"] },
-  "vars": { "ENVIRONMENT": "production" }
+  "vars": {
+    "ENVIRONMENT": "production",
+    "LEADS_FROM": "leads@web.popcomputer.com",
+    // The same address as the binding's destination_address above.
+    "LEADS_TO": "owner@example.com"
+  }
 }

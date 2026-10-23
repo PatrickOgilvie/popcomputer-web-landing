@@ -42,9 +42,8 @@ function getErrorContent(status: number): ErrorContent {
 }
 
 /** The page setupWeb's `errors.component` names: any error a visit meets, with a way back. */
-const ErrorPage: WebErrorPage = ({ status, message, hint, auth }) => {
+const ErrorPage: WebErrorPage = ({ status, message, hint }) => {
   const content = getErrorContent(status)
-  const needsSignIn = status === 401 || auth.user === null
 
   return (
     <>
@@ -52,34 +51,34 @@ const ErrorPage: WebErrorPage = ({ status, message, hint, auth }) => {
       <Layout>
         <section
           aria-labelledby="error-title"
-          className="mx-auto flex w-full max-w-lg flex-col items-start py-12 sm:py-20"
+          className="mx-auto flex w-full max-w-lg flex-col items-start px-4 py-12 sm:py-20"
         >
-          <p className="font-mono text-sm text-zinc-500 tabular-nums dark:text-zinc-400">
+          <p className="font-mono text-sm text-stone-500 tabular-nums dark:text-stone-400">
             Error {status}
           </p>
           <h1 id="error-title" className="mt-3 text-3xl font-semibold text-balance">
             {content.title}
           </h1>
-          <p className="mt-3 text-base text-pretty text-zinc-600 dark:text-zinc-400">
+          <p className="mt-3 text-base text-pretty text-stone-600 dark:text-stone-400">
             {message || content.description}
           </p>
 
           {hint ? (
             <div
               role="note"
-              className="mt-6 flex w-full gap-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+              className="mt-6 flex w-full gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm dark:border-stone-800 dark:bg-stone-900"
             >
-              <Info className="mt-0.5 size-4 shrink-0 text-zinc-500" aria-hidden="true" />
+              <Info className="mt-0.5 size-4 shrink-0 text-stone-500" aria-hidden="true" />
               <div>
                 <p className="font-medium">Technical detail</p>
-                <p className="mt-1 text-pretty text-zinc-600 dark:text-zinc-400">{hint}</p>
+                <p className="mt-1 text-pretty text-stone-600 dark:text-stone-400">{hint}</p>
               </div>
             </div>
           ) : null}
 
           <div className="mt-8 flex flex-wrap gap-2">
-            <Link href={needsSignIn ? paths.login : paths.dashboard} className={buttonClassName()}>
-              {needsSignIn ? 'Sign in' : 'Back to dashboard'}
+            <Link href={paths.home} className={buttonClassName()}>
+              Back to Shipnote
             </Link>
             <button
               type="button"

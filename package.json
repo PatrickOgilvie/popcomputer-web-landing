@@ -2,7 +2,7 @@
   "name": "popcomputer-web-landing",
   "version": "1.0.0",
   "private": true,
-  "description": "A starting point for @popcomputer/web on Cloudflare Workers: React pages, D1 and Better Auth.",
+  "description": "A landing page on @popcomputer/web whose form books a demo: Turnstile, D1, a Queue and Email Service.",
   "license": "MIT",
   "type": "module",
   "scripts": {

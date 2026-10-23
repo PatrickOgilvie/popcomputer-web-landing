@@ -29,8 +29,8 @@ const authSecret = 'a-secret-of-thirty-two-characters-or-more'
 const production = { ENVIRONMENT: 'production' }
 
 describe("the template's declaration", () => {
-  test('generates the secret Better Auth signs sessions with, and needs ENVIRONMENT', () => {
-    expect(env.entries.BETTER_AUTH_SECRET.generate).toBe(randomSecret)
+  test("needs Turnstile's secret, which nothing generates, and ENVIRONMENT", () => {
+    expect(env.entries.TURNSTILE_SECRET).toMatchObject({ kind: 'secret', optional: false, generate: undefined })
     expect(env.entries.ENVIRONMENT).toMatchObject({ kind: 'variable', optional: false })
   })
 
@@ -42,7 +42,7 @@ describe("the template's declaration", () => {
   })
 
   test("sets its vars in wrangler.jsonc, as a deploy needs them", () => {
-    expect(checkRemote(env, readWranglerVars(readFileSync('wrangler.jsonc', 'utf8')), new Set(['BETTER_AUTH_SECRET']))).toEqual({
+    expect(checkRemote(env, readWranglerVars(readFileSync('wrangler.jsonc', 'utf8')), new Set(['TURNSTILE_SECRET']))).toEqual({
       problems: [],
       generated: [],
     })
