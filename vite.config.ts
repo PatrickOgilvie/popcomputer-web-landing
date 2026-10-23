@@ -33,6 +33,10 @@ export default defineConfig(({ command, isPreview }) => ({
   resolve: {
     alias: { '~': resolve(import.meta.dirname, 'src') },
   },
+  // The client's env files (the Turnstile site key) live in env/, not beside
+  // package.json, where Bun would load .env.development into every script's
+  // environment, and Vite would build that over .env.production.
+  envDir: resolve(import.meta.dirname, 'env'),
   build: {
     rollupOptions: {
       // zod's notes beside its own annotations look like misplaced ones to

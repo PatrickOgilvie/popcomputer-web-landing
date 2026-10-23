@@ -122,7 +122,7 @@ test/           tests through the app, each on a D1 database of its own
 
 ## Setting up Turnstile and email
 
-Locally, nothing: `.env.development` and `.dev.vars.example` hold
+Locally, nothing: `env/.env.development` and `.dev.vars.example` hold
 Cloudflare's Turnstile test keys, whose widget always passes, and `bun run
 dev` keeps each email in a file under `.wrangler/tmp/email/` and prints
 where. Copy `.dev.vars.example` to `.dev.vars` before the first
@@ -133,7 +133,7 @@ On Cloudflare, once:
 1. **Turnstile.** Create a widget for your domain, in the dashboard's
    Turnstile page or with
    `bunx wrangler turnstile widget create my-landing --domain example.com --mode managed`.
-   Put its site key in `.env.production` (`VITE_TURNSTILE_SITE_KEY`), which is
+   Put its site key in `env/.env.production` (`VITE_TURNSTILE_SITE_KEY`), which is
    built into the page, and its secret on the Worker with
    `bun run secret TURNSTILE_SECRET`. The app refuses the test secret's
    answers in production.
