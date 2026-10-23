@@ -47,7 +47,7 @@
   "triggers": { "crons": ["0 3 * * *"] },
   "vars": {
     "ENVIRONMENT": "production",
-    "LEADS_FROM": "leads@web.popcomputer.com",
+    "LEADS_FROM": "leads@popcomputer.com",
     // The same address as the binding's destination_address above.
     "LEADS_TO": "owner@example.com"
   }
