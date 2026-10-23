@@ -496,8 +496,8 @@ const Landing: WebPage<'Landing'> = () => (
             the queue retries a send that fails.
           </Guarantee>
           <Guarantee>
-            The <code>send_email</code> binding has one <code>destination_address</code>: it can’t email anyone but the
-            owner, and sends 50 a day at most.
+            The owner’s address is a secret, the only one the Worker emails, from the one sender the{' '}
+            <code>send_email</code> binding allows, 50 a day at most.
           </Guarantee>
           <Guarantee>A daily Cron Trigger deletes leads after 30 days.</Guarantee>
         </UnderTheHood>

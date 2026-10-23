@@ -42,7 +42,7 @@ describe("the template's declaration", () => {
   })
 
   test("sets its vars in wrangler.jsonc, as a deploy needs them", () => {
-    expect(checkRemote(env, readWranglerVars(readFileSync('wrangler.jsonc', 'utf8')), new Set(['TURNSTILE_SECRET']))).toEqual({
+    expect(checkRemote(env, readWranglerVars(readFileSync('wrangler.jsonc', 'utf8')), new Set(['TURNSTILE_SECRET', 'LEADS_TO']))).toEqual({
       problems: [],
       generated: [],
     })

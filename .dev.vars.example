@@ -5,3 +5,8 @@
 # accepts its answers anywhere but in production. On Cloudflare, set the
 # secret Turnstile issued with your widget's site key: bun run secret TURNSTILE_SECRET.
 TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+
+# The owner's address. Locally no email leaves the computer: bun run dev keeps
+# each one in a file under .wrangler/tmp/email/. On Cloudflare:
+# bun run secret LEADS_TO.
+LEADS_TO=owner@example.com

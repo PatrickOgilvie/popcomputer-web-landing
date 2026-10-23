@@ -3,11 +3,16 @@ import { readFileSync } from 'node:fs'
 import { readWranglerVars } from '../scripts/env'
 
 describe('wrangler.jsonc', () => {
-  test('sends the owner’s emails to LEADS_TO, the one address the binding allows', () => {
-    const config = readFileSync('wrangler.jsonc', 'utf8')
-    const destination = /"send_email":\s*\[\s*\{[^}]*"destination_address":\s*"([^"]+)"/.exec(config)?.[1]
+  const config = readFileSync('wrangler.jsonc', 'utf8')
 
-    expect(destination).toBeDefined()
-    expect(readWranglerVars(config).LEADS_TO).toBe(destination)
+  test('sends the owner’s emails from LEADS_FROM, the one sender the binding allows', () => {
+    const senders = /"send_email":\s*\[\s*\{[^}]*"allowed_sender_addresses":\s*\[\s*"([^"]+)"\s*\]/.exec(config)?.[1]
+
+    expect(senders).toBeDefined()
+    expect(readWranglerVars(config).LEADS_FROM).toBe(senders)
+  })
+
+  test('keeps the owner’s address out of the code: LEADS_TO is a secret', () => {
+    expect(readWranglerVars(config)).not.toHaveProperty('LEADS_TO')
   })
 })

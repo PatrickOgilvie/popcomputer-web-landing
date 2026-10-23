@@ -36,19 +36,17 @@
     "producers": [{ "binding": "LEAD_EMAILS", "queue": "popcomputer-web-landing-emails" }],
     "consumers": [{ "queue": "popcomputer-web-landing-emails", "max_batch_size": 10, "max_retries": 5 }]
   },
-  // Email Service sends the owner's emails. The binding may send to its one
-  // destination_address, LEADS_TO below, and nowhere else, from an address on
-  // a domain onboarded to Email Sending (LEADS_FROM). Locally, bun run dev
-  // keeps each email in a file instead of sending it.
-  "send_email": [{ "name": "OWNER_EMAIL", "destination_address": "owner@example.com" }],
+  // Email Service sends the owner's emails, to the LEADS_TO secret, and only
+  // from LEADS_FROM below: an address on a domain onboarded to Email Sending.
+  // Locally, bun run dev keeps each email in a file instead of sending it.
+  "send_email": [{ "name": "OWNER_EMAIL", "allowed_sender_addresses": ["leads@popcomputer.com"] }],
   // Identifies the deploy, so the page cache starts each deploy empty.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // Deletes the leads older than 30 days.
   "triggers": { "crons": ["0 3 * * *"] },
   "vars": {
     "ENVIRONMENT": "production",
-    "LEADS_FROM": "leads@popcomputer.com",
-    // The same address as the binding's destination_address above.
-    "LEADS_TO": "owner@example.com"
+    // The same address as the binding's allowed_sender_addresses above.
+    "LEADS_FROM": "leads@popcomputer.com"
   }
 }

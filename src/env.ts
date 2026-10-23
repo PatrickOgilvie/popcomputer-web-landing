@@ -19,8 +19,11 @@ export const env = defineEnv({
   TURNSTILE_SECRET: secret(),
   /** The address the owner's emails come from, on a domain onboarded to Email Sending. */
   LEADS_FROM: variable(S.String.check(S.isPattern(/^[^\s@]+@[^\s@]+$/))),
-  /** The owner's address: the OWNER_EMAIL binding's destination_address, its only one. */
-  LEADS_TO: variable(S.String.check(S.isPattern(/^[^\s@]+@[^\s@]+$/))),
+  /**
+   * The owner's address, the only one the Worker emails. A secret, so a
+   * public copy of the code doesn't carry it: `bun run secret LEADS_TO`.
+   */
+  LEADS_TO: secret(S.String.check(S.isPattern(/^[^\s@]+@[^\s@]+$/))),
 })
 
 /** The Worker's bindings: the vars and secrets above, and those wrangler.jsonc declares. */
@@ -30,7 +33,7 @@ export type Bindings = EnvBindings<typeof env> & {
   LEAD_LIMITER: RateLimit
   /** Carries each new lead to the Worker's queue consumer, which emails the owner. */
   LEAD_EMAILS: Queue<typeof LeadEmail.Type>
-  /** Sends only to the owner: wrangler.jsonc gives it LEADS_TO as its one destination_address. */
+  /** Sends the owner's emails, from LEADS_FROM only: wrangler.jsonc allows no other sender. */
   OWNER_EMAIL: SendEmail
 }
 

@@ -41,7 +41,7 @@ export class LeadQueue extends Context.Service<LeadQueue, { readonly enqueue: (l
 
 export class EmailNotSent extends S.TaggedError<EmailNotSent>()('EmailNotSent', { code: S.String, message: S.String }) {}
 
-/** Sends the owner an email: the only address the binding may send to. */
+/** Sends the owner an email, at the one address LEADS_TO holds. */
 export class OwnerInbox extends Context.Service<
   OwnerInbox,
   { readonly send: (email: OwnerEmail) => Effect.Effect<void, EmailNotSent> }
@@ -99,14 +99,14 @@ const turnstileLive = Layer.effect(
   })
 )
 
-// The binding's destination_address in wrangler.jsonc is LEADS_TO: the one
-// address it may send to, whatever the code asks.
+// Every email goes to LEADS_TO, the owner's address, and from LEADS_FROM, the
+// one sender wrangler.jsonc allows the binding.
 const ownerInboxFor = (binding: SendEmail) =>
   Layer.effect(
     OwnerInbox,
     Effect.gen(function* () {
       const from = yield* config.string('LEADS_FROM')
-      const to = yield* config.string('LEADS_TO')
+      const to = Redacted.value(yield* config.redacted('LEADS_TO'))
 
       return OwnerInbox.of({
         send: (email) => {

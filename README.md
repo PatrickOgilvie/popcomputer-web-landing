@@ -60,9 +60,10 @@ export const sendLead = action(
   The Worker's queue consumer emails the owner through Email Service, with a
   reply-to that reaches the sender, and marks the lead sent. A send that
   fails goes back to the queue to try again; a repeat delivery sends nothing.
-- **One address only.** The `send_email` binding has one
-  `destination_address`, so the Worker can't email anyone but the owner, and
-  it sends 50 a day at most: the rest wait in the database.
+- **One address only.** The Worker emails the owner's address and nobody
+  else, from the one sender the `send_email` binding allows, and sends 50 a
+  day at most: the rest wait in the database. The owner's address is a
+  secret, `LEADS_TO`, so this public code doesn't carry it.
 - **A thank-you page that watches.** It shows the message this browser sent,
   through a cookie scoped to `/thanks`, and the email the owner gets, and asks
   for the lead alone every two seconds until the email has gone.
@@ -138,9 +139,10 @@ On Cloudflare, once:
    answers in production.
 2. **Email.** Onboard the domain you send from in the dashboard's
    Email Service, under Email Sending. It adds the SPF, DKIM and DMARC
-   records. Set `LEADS_FROM` in `wrangler.jsonc` to an address on it, and
-   `LEADS_TO` and the `send_email` binding's `destination_address` to the
-   address that gets the emails; a test checks those two match.
+   records. Set `LEADS_FROM` in `wrangler.jsonc`, and the `send_email`
+   binding's `allowed_sender_addresses`, to an address on it; a test checks
+   the two match. Set the address that gets the emails with
+   `bun run secret LEADS_TO`.
 3. **The queue.** Create it once: `bunx wrangler queues create popcomputer-web-landing-emails`,
    or the name you give it in `wrangler.jsonc`.
 4. **The address.** `routes` in `wrangler.jsonc` names this example's own
@@ -324,9 +326,9 @@ with the id in brackets.
 `src/env.ts` declares each var and secret the Worker reads, once, with an
 Effect schema for its value. The Worker checks its own against it before it
 serves: a missing or invalid one fails every request, and its log names which.
-The commands below check them before that can happen. This app has one
-secret, `TURNSTILE_SECRET`, and three vars: `ENVIRONMENT`, `LEADS_FROM` and
-`LEADS_TO`.
+The commands below check them before that can happen. This app has two
+secrets, `TURNSTILE_SECRET` and the owner's address `LEADS_TO`, and two
+vars, `ENVIRONMENT` and `LEADS_FROM`.
 
 A secret, such as another service's API key, is declared with `secret(...)`.
 A secret nobody has to choose, such as a signing key, has a `generate`,
