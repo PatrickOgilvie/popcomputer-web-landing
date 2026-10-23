@@ -1,52 +1,92 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "popcomputer-web-landing",
-  "main": "src/worker.ts",
-  "compatibility_date": "2026-08-04",
-  "compatibility_flags": ["nodejs_compat"],
-  // The client bundle `bun run build` writes; the Worker answers everything else.
-  "assets": { "directory": "dist" },
-  // Each uploaded version answers at an address of its own: bun run deploy
-  // checks a new one there before it goes live, and bun run preview shares it.
-  "preview_urls": true,
-  // The example's own address on popcomputer.com's zone. To deploy a copy of
-  // your own, remove this, or name a domain of yours.
-  "routes": [{ "pattern": "landing.web.popcomputer.com", "custom_domain": true }],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "popcomputer-web-landing-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      // Names the local database bun run dev and the db: scripts share, so it
-      // keeps its data when the first deploy writes the real id above. It's
-      // why wrangler calls the database on Cloudflare the "preview database"
-      // when it migrates or queries it there: that's still the live one. To
-      // develop against the live one ("remote": true), set this to its id.
-      "preview_database_id": "local",
-      "migrations_dir": "migrations"
-    }
-  ],
-  // Counts each client address's messages from the form, at Cloudflare's edge.
-  "ratelimits": [
-    { "name": "LEAD_LIMITER", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } }
-  ],
-  // Each new lead goes on the queue, and this Worker's queue handler emails
-  // the owner; a send that fails is tried again, five times at most.
-  "queues": {
-    "producers": [{ "binding": "LEAD_EMAILS", "queue": "popcomputer-web-landing-emails" }],
-    "consumers": [{ "queue": "popcomputer-web-landing-emails", "max_batch_size": 10, "max_retries": 5 }]
-  },
-  // Email Service sends the owner's emails, to the LEADS_TO secret, and only
-  // from LEADS_FROM below: an address on a domain onboarded to Email Sending.
-  // Locally, bun run dev keeps each email in a file instead of sending it.
-  "send_email": [{ "name": "OWNER_EMAIL", "allowed_sender_addresses": ["leads@popcomputer.com"] }],
-  // Identifies the deploy, so the page cache starts each deploy empty.
-  "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // Deletes the leads older than 30 days.
-  "triggers": { "crons": ["0 3 * * *"] },
-  "vars": {
-    "ENVIRONMENT": "production",
-    // The same address as the binding's allowed_sender_addresses above.
-    "LEADS_FROM": "leads@popcomputer.com"
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "popcomputer-web-landing",
+	"main": "src/worker.ts",
+	"compatibility_date": "2026-08-04",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// The client bundle `bun run build` writes; the Worker answers everything else.
+	"assets": {
+		"directory": "dist"
+	},
+	// Each uploaded version answers at an address of its own: bun run deploy
+	// checks a new one there before it goes live, and bun run preview shares it.
+	"preview_urls": true,
+	// The example's own address on popcomputer.com's zone. To deploy a copy of
+	// your own, remove this, or name a domain of yours.
+	"routes": [
+		{
+			"pattern": "landing.web.popcomputer.com",
+			"custom_domain": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "popcomputer-web-landing-db",
+			"database_id": "278eedcf-e687-44f5-854e-990c72d5ac48",
+			// Names the local database bun run dev and the db: scripts share, so it
+			// keeps its data when the first deploy writes the real id above. It's
+			// why wrangler calls the database on Cloudflare the "preview database"
+			// when it migrates or queries it there: that's still the live one. To
+			// develop against the live one ("remote": true), set this to its id.
+			"preview_database_id": "local",
+			"migrations_dir": "migrations"
+		}
+	],
+	// Counts each client address's messages from the form, at Cloudflare's edge.
+	"ratelimits": [
+		{
+			"name": "LEAD_LIMITER",
+			"namespace_id": "1002",
+			"simple": {
+				"limit": 5,
+				"period": 60
+			}
+		}
+	],
+	// Each new lead goes on the queue, and this Worker's queue handler emails
+	// the owner; a send that fails is tried again, five times at most.
+	"queues": {
+		"producers": [
+			{
+				"binding": "LEAD_EMAILS",
+				"queue": "popcomputer-web-landing-emails"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "popcomputer-web-landing-emails",
+				"max_batch_size": 10,
+				"max_retries": 5
+			}
+		]
+	},
+	// Email Service sends the owner's emails, to the LEADS_TO secret, and only
+	// from LEADS_FROM below: an address on a domain onboarded to Email Sending.
+	// Locally, bun run dev keeps each email in a file instead of sending it.
+	"send_email": [
+		{
+			"name": "OWNER_EMAIL",
+			"allowed_sender_addresses": [
+				"leads@popcomputer.com"
+			]
+		}
+	],
+	// Identifies the deploy, so the page cache starts each deploy empty.
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA"
+	},
+	// Deletes the leads older than 30 days.
+	"triggers": {
+		"crons": [
+			"0 3 * * *"
+		]
+	},
+	"vars": {
+		"ENVIRONMENT": "production",
+		// The same address as the binding's allowed_sender_addresses above.
+		"LEADS_FROM": "leads@popcomputer.com"
+	}
 }
